@@ -2,7 +2,7 @@
 
 **Phase 2 client relay for MAAC certification.**
 
-This container runs inside your environment during the Phase 2 stage of a MAAC (Muslim-American AI Certification) engagement. It connects to the MaacVerify server, receives your submitted operational scenarios one at a time, routes each one through your AI model, and returns the encrypted responses for MAAC assessment.
+This container runs inside your environment during the Phase 2 stage of a MAAC (Multi-Dimensional Assessment of AI Cognition) engagement. It connects to the MaacVerify server, receives your submitted operational scenarios one at a time, routes each one through your AI model, and returns the encrypted responses for MAAC assessment.
 
 The result is a certification report that tells you whether the cognitive profile established in Phase 1 — measured on synthetic benchmarks — holds up under the real-world conditions in which you actually deploy your model.
 
@@ -31,7 +31,7 @@ This answers the question that Phase 1 cannot: **does the model perform in produ
 The report compares your Phase 2 operational results against the Phase 1 profile and produces one of four outcomes:
 
 | Outcome | Meaning |
-|---|---|
+| --- | --- |
 | **Profile Confirmed** | Phase 1 characterization is valid under your real operational conditions. The model you benchmarked is the model you deployed. |
 | **Profile Confirmed with Operational Shift** | The Phase 1 profile holds at the distributional level, but specific dimensions show measurable mean shifts under production conditions. Shift details are disclosed per dimension. |
 | **Profile Departure Detected** | Real-world performance fell below the Phase 1 floor on one or more dimensions. The Phase 1 characterization does not hold for this deployment context. |
@@ -108,7 +108,7 @@ Set `restart: "no"`. The container exits when the session completes, and the `CL
 ### Required
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `MAAC_SERVER_URL` | WebSocket URL provided by your operator. Starts with `wss://` (or `ws://` for local testing). |
 | `CLIENT_API_KEY` | Single-use session key issued by your operator for this assessment. |
 | `CLIENT_AI_ENDPOINT` | Full URL of your AI model's HTTP endpoint. Must accept `POST` with a JSON body. |
@@ -118,7 +118,7 @@ Set `restart: "no"`. The container exits when the session completes, and the `CL
 ### Optional
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `CLIENT_AI_MODEL` | _(not sent)_ | Model identifier included in the request body. Required by most hosted APIs. |
 | `CLIENT_AI_TIMEOUT_MS` | `120000` | Per-request timeout in milliseconds. Increase for slower models. Minimum `1000`. |
 | `CLIENT_AI_MAX_RETRIES` | `3` | Retry attempts on model errors, with backoff: 2s, 4s, 8s. Set to `0` to disable. |
@@ -132,7 +132,7 @@ Set `restart: "no"`. The container exits when the session completes, and the `CL
 
 Compatible with OpenAI, Azure OpenAI, and any OpenAI-compatible endpoint (vLLM, llama.cpp, Ollama, etc.).
 
-```
+```env
 CLIENT_AI_FORMAT=openai
 CLIENT_AI_ENDPOINT=https://api.openai.com/v1/chat/completions
 CLIENT_AI_MODEL=gpt-4o
@@ -142,7 +142,7 @@ CLIENT_AI_MODEL=gpt-4o
 
 Compatible with the Anthropic Messages API.
 
-```
+```env
 CLIENT_AI_FORMAT=anthropic
 CLIENT_AI_ENDPOINT=https://api.anthropic.com/v1/messages
 CLIENT_AI_MODEL=claude-sonnet-4-6
@@ -155,7 +155,7 @@ For endpoints that expect a non-standard request body. Provide a JSON template w
 Available placeholders:
 
 | Placeholder | Content |
-|---|---|
+| --- | --- |
 | `{{taskTitle}}` | Short title of the task |
 | `{{taskDescription}}` | Full task description |
 | `{{businessContext}}` | Background context for the scenario |
@@ -164,7 +164,7 @@ Available placeholders:
 
 Example:
 
-```
+```env
 CLIENT_AI_FORMAT=custom
 CUSTOM_BODY_TEMPLATE={"prompt":"{{taskTitle}}\n\n{{taskDescription}}\n\nContext: {{businessContext}}","max_new_tokens":2048}
 ```
@@ -192,7 +192,7 @@ curl http://localhost:8080/health
 ```
 
 | `status` | Meaning |
-|---|---|
+| --- | --- |
 | `ready` | Connected, session handshake in progress |
 | `running` | Actively processing scenarios |
 | `complete` | All scenarios finished — responses delivered to MaacVerify |
