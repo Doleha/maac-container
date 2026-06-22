@@ -47,7 +47,7 @@ The following must be in place:
 
 1. **Phase 1 is complete and locked.** Your MaacVerify operator will confirm this. The container enforces this at connection time — the session will be rejected if Phase 1 is not locked.
 
-2. **Your scenarios have been submitted.** You upload your operational scenarios to MaacVerify via the intake API (`POST /api/assessment/scenarios/import`) before the assessment session begins. The container runs the scenarios that are already on file — it does not accept new submissions during the session.
+2. **Your scenarios have been submitted.** You upload your operational scenarios to MaacVerify before the assessment session begins — either from the container's web UI (see [The Container UI](#the-container-ui)) or directly via the intake API (`POST /api/assessment/scenarios/import`). Scenarios must conform to the [scenario schema](#preparing-scenarios). The container runs the scenarios that are already on file — it does not accept new submissions during the session.
 
 3. **You have a CLIENT_API_KEY.** Your operator issues this after creating the assessment session. It is single-use and tied to your specific engagement. Do not share it.
 
@@ -123,6 +123,7 @@ Set `restart: "no"`. The container exits when the session completes, and the `CL
 | `CLIENT_AI_TIMEOUT_MS` | `120000` | Per-request timeout in milliseconds. Increase for slower models. Minimum `1000`. |
 | `CLIENT_AI_MAX_RETRIES` | `3` | Retry attempts on model errors, with backoff: 2s, 4s, 8s. Set to `0` to disable. |
 | `CUSTOM_BODY_TEMPLATE` | _(none)_ | Required when `CLIENT_AI_FORMAT=custom`. See below. |
+| `HEALTH_PORT` | `8080` | Port for the web UI and HTTP API. Change it if 8080 is taken. |
 
 ---
 
@@ -171,11 +172,46 @@ CUSTOM_BODY_TEMPLATE={"prompt":"{{taskTitle}}\n\n{{taskDescription}}\n\nContext:
 
 ---
 
-## Monitoring Progress
+## Preparing Scenarios
 
-Open `http://localhost:8080` in a browser while the container is running to see a live progress dashboard. It updates every 2 seconds.
+Phase 2 scenarios are your own real operational tasks. You prepare them, de-identify them, and conform them to the MAAC scenario schema before submission. The container ships the schema and an example:
 
-For programmatic monitoring:
+- [`schema/maac-scenario.schema.json`](schema/maac-scenario.schema.json) — JSON Schema (draft 2020-12). Also served live at `http://localhost:8080/api/schema`.
+- [`schema/example-scenarios.jsonl`](schema/example-scenarios.jsonl) — two conformant records.
+
+**Each scenario record:**
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `scenarioId` | yes | Globally unique. Duplicates are rejected. |
+| `experimentId` | yes | Provided by your operator. |
+| `configId` | yes | Provided by your operator. |
+| `modelId` | yes | Identifier of the subject model. Provided by your operator. |
+| `taskTitle` | yes | Short title of the decision task. |
+| `taskDescription` | yes | The full task the model must perform. |
+| `businessContext` | no | Background the model needs. |
+| `scenarioRequirements` | no | Array of strings — what the response must address. |
+| `dataElements` | no | Array of strings — structured data for the task. |
+
+**Not permitted:** `successCriteria`, `expectedCalculations`, `expectedInsights`. MAAC scores cognitive *process*, not outcome correctness — answer keys are rejected at import.
+
+**Derived server-side:** `domain` and `tier`. MaacVerify assigns these through its complexity pipeline; any values you include are ignored.
+
+Submit a JSON array, a `{ "scenarios": [...] }` envelope, or newline-delimited JSON — from the UI or by `POST`ing to `/api/assessment/scenarios/import`.
+
+---
+
+## The Container UI
+
+Open `http://localhost:8080` in a browser on your network while the container is running. The UI has three tabs.
+
+**Session** — live assessment progress: status badge, scenarios complete / total, retry count, and the active session id. Updates every 2 seconds.
+
+**Scenarios** — paste or load (`.json` / `.jsonl`) your scenario records and **Validate** them against the schema. Each record is reported pass/fail with specific errors. When records are valid, a **Submit to MAAC server** panel appears: enter your MAAC server API base URL (prefilled) and your tenant API key, and submit the valid records. The key is sent once, through the container, to the import endpoint — it is never stored. The server's accepted/rejected summary is shown.
+
+**Preflight** — your container configuration at a glance (secrets shown only as set/missing), and a **Test endpoint** button that sends one minimal request to your AI endpoint to confirm it is reachable and authenticated before a session runs.
+
+### Programmatic monitoring
 
 ```bash
 curl http://localhost:8080/health
@@ -197,6 +233,20 @@ curl http://localhost:8080/health
 | `running` | Actively processing scenarios |
 | `complete` | All scenarios finished — responses delivered to MaacVerify |
 | `error` | Session ended due to an error |
+
+### HTTP endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /` | The web UI |
+| `GET /health` | Session status JSON (above) |
+| `GET /api/config` | Container configuration (secrets as booleans) |
+| `GET /api/schema` | The scenario JSON Schema |
+| `POST /api/validate` | Validate scenario records (JSON array or JSONL body) |
+| `POST /api/submit` | Validate and forward records to the MAAC import endpoint |
+| `GET /api/preflight` | One-shot connectivity test to your AI endpoint |
+
+These bind to port 8080 and are intended for your internal network only — do not expose them publicly.
 
 ---
 
@@ -251,6 +301,8 @@ The container is dispatching scenarios but your model is returning errors. Check
 - No scenario content, prompts, or model responses are written to disk at any point.
 - `CLIENT_API_KEY` is never logged.
 - The container runs as a non-root user with no volumes.
+- The web UI and its API (port 8080) are for your internal network only — they are not authenticated and must not be exposed publicly.
+- A tenant API key entered in the UI's submit panel is forwarded once to the import endpoint and never stored, logged, or written to disk.
 
 ---
 

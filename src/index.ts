@@ -9,7 +9,7 @@ const config = loadConfig();
 
 let currentState: SessionState | null = null;
 
-startHealthServer(() => currentState);
+startHealthServer(config, () => currentState);
 
 console.log(`[maac-container] Format: ${config.clientAiFormat} | Endpoint: ${config.clientAiEndpoint}`);
 console.log(`[maac-container] Server: ${config.maacServerUrl}`);

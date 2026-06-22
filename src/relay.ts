@@ -4,7 +4,7 @@ import { SubjectPayload, ResponsePackage } from './types.js';
 const BACKOFF_MS = [2000, 4000, 8000] as const;
 
 // Renders a SubjectPayload into a labelled-section prompt string.
-function renderPrompt(payload: SubjectPayload): string {
+export function renderPrompt(payload: SubjectPayload): string {
   return [
     `Task Title: ${payload.taskTitle}`,
     ``,
@@ -33,7 +33,7 @@ function interpolateTemplate(template: string, payload: SubjectPayload): Record<
   }
 }
 
-function buildRequestBody(prompt: string, payload: SubjectPayload, config: Config): Record<string, unknown> {
+export function buildRequestBody(prompt: string, payload: SubjectPayload, config: Config): Record<string, unknown> {
   if (config.clientAiFormat === 'openai') {
     const body: Record<string, unknown> = {
       messages: [{ role: 'user', content: prompt }],
@@ -174,4 +174,53 @@ export async function executeRequest(
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export interface PreflightResult {
+  ok: boolean;
+  statusCode: number;
+  latencyMs: number;
+  error?: string;
+}
+
+// Single-attempt connectivity check against the client AI endpoint, used by the
+// preflight UI. Sends one minimal request using the configured format — it does
+// issue one (cheap) model call. No retries.
+export async function preflightAi(config: Config): Promise<PreflightResult> {
+  const payload: SubjectPayload = {
+    taskTitle: 'Connectivity check',
+    taskDescription: 'Reply with the single word: OK',
+    businessContext: '',
+    scenarioRequirements: '',
+    dataElements: '',
+  };
+  const body = buildRequestBody(renderPrompt(payload), payload, config);
+
+  const controller = new AbortController();
+  const timeoutMs = Math.min(config.clientAiTimeoutMs, 30_000);
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+  const startMs = Date.now();
+
+  try {
+    const res = await fetch(config.clientAiEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.clientAiAuthToken}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutHandle);
+    return { ok: res.ok, statusCode: res.status, latencyMs: Date.now() - startMs };
+  } catch (err: unknown) {
+    clearTimeout(timeoutHandle);
+    const name = (err as Error).name;
+    return {
+      ok: false,
+      statusCode: 0,
+      latencyMs: Date.now() - startMs,
+      error: name === 'AbortError' ? `Timed out after ${timeoutMs}ms` : (err as Error).message,
+    };
+  }
 }

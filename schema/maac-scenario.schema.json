@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://maacverify.ai/schemas/maac-scenario.schema.json",
+  "title": "MAAC Phase 2 Client Scenario",
+  "description": "One operational scenario submitted to MaacVerify for Phase 2 assessment. Submit a set of these (JSON array or newline-delimited JSON) to POST /api/assessment/scenarios/import. domain and tier are derived server-side by the complexity pipeline — do not assert them. Answer-key fields are rejected at the import boundary.",
+  "type": "object",
+  "required": [
+    "scenarioId",
+    "experimentId",
+    "configId",
+    "modelId",
+    "taskTitle",
+    "taskDescription"
+  ],
+  "properties": {
+    "scenarioId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this scenario. Must be globally unique — duplicates are rejected."
+    },
+    "experimentId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Phase 2 experiment id for this engagement. Provided by your operator."
+    },
+    "configId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Tool/configuration id for this engagement. Provided by your operator."
+    },
+    "modelId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the subject model under assessment. Provided by your operator."
+    },
+    "taskTitle": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short title of the decision task."
+    },
+    "taskDescription": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The full task the model must perform. This is the core of the scenario."
+    },
+    "businessContext": {
+      "type": "string",
+      "description": "Optional. Background the model needs to perform the task realistically."
+    },
+    "scenarioRequirements": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional. Requirements the response must address, one per item."
+    },
+    "dataElements": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional. Structured data provided with the scenario, one element per item."
+    },
+    "tenantId": {
+      "type": "string",
+      "description": "Optional. If present, must match your authenticated tenant."
+    },
+    "successCriteria": false,
+    "expectedCalculations": false,
+    "expectedInsights": false
+  },
+  "additionalProperties": true,
+  "$comment": "successCriteria/expectedCalculations/expectedInsights are set to the boolean schema `false`: if any is present the record is invalid. These are answer-key fields and MAAC scores cognitive process, not outcome correctness. domain and tier may be present but are ignored — the server derives them."
+}
