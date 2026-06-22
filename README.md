@@ -207,7 +207,11 @@ Open `http://localhost:8080` in a browser on your network while the container is
 
 **Session** — live assessment progress: status badge, scenarios complete / total, retry count, and the active session id. Updates every 2 seconds.
 
+![Session tab — live assessment progress](docs/ui-session.png)
+
 **Scenarios** — paste or load (`.json` / `.jsonl`) your scenario records and **Validate** them against the schema. Each record is reported pass/fail with specific errors. When records are valid, a **Submit to MAAC server** panel appears: enter your MAAC server API base URL (prefilled) and your tenant API key, and submit the valid records. The key is sent once, through the container, to the import endpoint — it is never stored. The server's accepted/rejected summary is shown.
+
+![Scenarios tab — validate and submit](docs/ui-scenarios.png)
 
 **Preflight** — your container configuration at a glance (secrets shown only as set/missing), and a **Test endpoint** button that sends one minimal request to your AI endpoint to confirm it is reachable and authenticated before a session runs.
 
