@@ -243,9 +243,11 @@ async function runSession(
     sessionState.scenariosReceived++;
     onStateChange(sessionState);
 
-    await handleRequest(ws, msg.requestId, msg.encryptedPayload, sessionKey, sessionState, config);
-
-    onStateChange(sessionState);
+    // Fire and forget — multiple requests run concurrently; each sends its
+    // own RESPONSE when done, identified by requestId.
+    handleRequest(ws, msg.requestId, msg.encryptedPayload, sessionKey, sessionState, config)
+      .then(() => onStateChange(sessionState))
+      .catch((err: unknown) => console.error('[tunnel] Unhandled error in request handler:', (err as Error).message));
   }
 }
 
