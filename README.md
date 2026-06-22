@@ -307,6 +307,7 @@ The container is dispatching scenarios but your model is returning errors. Check
 - The container runs as a non-root user with no volumes.
 - The web UI and its API (port 8080) are for your internal network only — they are not authenticated and must not be exposed publicly.
 - A tenant API key entered in the UI's submit panel is forwarded once to the import endpoint and never stored, logged, or written to disk.
+- The `/api/*` endpoints are rate-limited per client IP (60s window): `/api/preflight` 6/min, `/api/submit` 10/min, others 120/min. Over the limit returns `429`. The UI (`/`) and `/health` are not limited.
 
 ---
 

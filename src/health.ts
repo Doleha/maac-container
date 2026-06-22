@@ -70,6 +70,38 @@ function parseScenarioRecords(raw: string): unknown[] {
   return trimmed.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => JSON.parse(line));
 }
 
+// ── Per-IP rate limiting for the /api/* endpoints ────────────────────────────
+// The UI server is internal-only, but the amplification endpoints (preflight
+// issues a model call; submit makes an authenticated outbound call) warrant a
+// cap. Fixed-window per-IP counters, pruned periodically. The UI ( / ) and
+// /health are not limited — they are cheap and /health is polled every 2s.
+const RL_WINDOW_MS = 60_000;
+const RL_DEFAULT_MAX = 120;
+const RL_ENDPOINT_MAX: Record<string, number> = {
+  '/api/preflight': 6,
+  '/api/submit': 10,
+};
+const rlBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function rlConsume(ip: string, max: number): boolean {
+  const now = Date.now();
+  const bucket = rlBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    rlBuckets.set(ip, { count: 1, resetAt: now + RL_WINDOW_MS });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= max;
+}
+
+const rlSweep = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, bucket] of rlBuckets) {
+    if (now > bucket.resetAt) rlBuckets.delete(ip);
+  }
+}, RL_WINDOW_MS);
+rlSweep.unref();
+
 export function startHealthServer(config: Config, getState: () => SessionState | null): void {
   const sendJson = (res: import('http').ServerResponse, code: number, body: unknown): void => {
     res.writeHead(code, { 'Content-Type': 'application/json' });
@@ -78,6 +110,17 @@ export function startHealthServer(config: Config, getState: () => SessionState |
 
   const server = createServer((req, res) => {
     const url = (req.url ?? '/').split('?')[0];
+
+    // Rate-limit the /api/* surface per client IP.
+    if (url.startsWith('/api/')) {
+      const ip = req.socket.remoteAddress ?? 'unknown';
+      const max = RL_ENDPOINT_MAX[url] ?? RL_DEFAULT_MAX;
+      if (!rlConsume(ip, max)) {
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+        res.end(JSON.stringify({ error: 'Too many requests' }));
+        return;
+      }
+    }
 
     // ── Static / read-only ───────────────────────────────────────────────
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
